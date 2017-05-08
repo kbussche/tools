@@ -1,0 +1,84 @@
+#!/usr/bin/perl -w
+use strict;
+use Getopt::Std;
+
+my $allopts = 't:n';
+my %opts;
+
+getopts ($allopts, \%opts);
+
+foreach my $opt (split /:/, $allopts) {
+    $opt =~ s/.*(.)$/$1/;
+    if (exists($opts{$opt})) { 
+        die "Options $opt must have an argument.\n" if (!defined($opts{$opt}));
+        die "Invalid value '$opts{$opt}' for option $opt.\n" if ($opts{$opt} =~ /^\-/);
+    }
+}
+
+my $THRESHOLD = $opts{'t'} || 0;
+my $net = (exists $opts{'n'}) ? 1 : 0;
+my (%ips, $h, %nets);
+
+while (<STDIN>) {
+    if (/((((\d{1,3}\.)\d{1,3}.)\d{1,3}.)\d{1,3})/) {   
+        $ips{$1} = 0 if (!exists($ips{$1}));
+        $ips{$1} += 1;
+
+        $nets{$2} = 0 if (!exists($nets{$2}));
+        $nets{$2} += 1;
+
+        $nets{$3} = 0 if (!exists($nets{$3}));
+        $nets{$3} += 1;
+        $nets{$4} = 0 if (!exists($nets{$4}));
+        $nets{$4} += 1;
+
+        while ($' =~ /((((\d{1,3}\.)\d{1,3}.)\d{1,3}.)\d{1,3})/) {
+            $ips{$1} = 0 if (!exists($ips{$1}));
+            $ips{$1} += 1;
+
+            $nets{$2} = 0 if (!exists($nets{$2}));
+            $nets{$2} += 1;
+
+            $nets{$3} = 0 if (!exists($nets{$3}));
+            $nets{$3} += 1;
+
+            $nets{$4} = 0 if (!exists($nets{$4}));
+            $nets{$4} += 1;
+        }
+    }
+}
+
+if ($net) {
+    my $cur = 0;
+    foreach $h (sort ipcompare keys %nets) {   
+        if ($nets{$h} > $THRESHOLD) {   
+            my @a = split(/\./,$h);
+            print "--------------------------------\n" if ($cur != $a[0]);
+            $cur = $a[0];
+            printf("%-15s\t\t%s\n",$h,$nets{$h});
+        }
+    }
+
+    print "--------------------------------\n";
+
+} else {
+    foreach $h (sort { $ips{$b} <=> $ips{$a} } keys %ips) {   
+        if ($ips{$h} > $THRESHOLD) {
+            printf("%-15s\t\t%s\n",$h,$ips{$h});
+        }
+    }
+}
+
+sub ipcompare
+{
+    my @ipa = split(/\./, $a);
+    my @ipb = split(/\./, $b);
+
+    for (my $i = 0; $i < 4; $i++) {
+        $ipa[$i] = 0 if(!defined $ipa[$i]);
+        $ipb[$i] = 0 if(!defined $ipb[$i]);
+        return $ipa[$i] <=> $ipb[$i] if ($ipb[$i] != $ipa[$i]);
+    }
+
+    return 0;
+}
